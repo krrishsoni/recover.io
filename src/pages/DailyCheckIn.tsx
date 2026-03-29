@@ -1,645 +1,412 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import Confetti from 'react-confetti';
-import {
-  ArrowLeft,
-  ArrowRight,
-  AlertCircle,
-  CheckCircle2,
-  Thermometer,
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Thermometer, 
+  Activity, 
+  Wind, 
+  Zap, 
+  CheckCircle2, 
+  Camera, 
+  Smile, 
+  Meh, 
+  Frown, 
+  AlertTriangle,
   Heart,
-  Camera,
-  Smile,
-  Send,
-  Sparkles
+  Moon,
+  Coffee,
+  Sun,
+  CloudRain
 } from 'lucide-react';
-import { useAuth, CheckIn } from '../context/AuthContext';
-import Header from '../components/layout/Header';
-import AnimatedBackground from '../components/ui/AnimatedBackground';
-import GlassCard from '../components/ui/GlassCard';
-import GradientButton from '../components/ui/GradientButton';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { AnimatedBackground } from '../components/AnimatedBackground';
+import confetti from 'canvas-confetti';
+
+const STEPS = [
+  { id: 'pain', label: 'Pain', icon: '🔥' },
+  { id: 'vitals', label: 'Vitals', icon: '🌡️' },
+  { id: 'wound', label: 'Wound', icon: '🩹' },
+  { id: 'symptoms', label: 'Symptoms', icon: '🤔' },
+  { id: 'mood', label: 'Mood', icon: '💜' },
+  { id: 'review', label: 'Review', icon: '📋' },
+];
+
+const PAIN_EMOJIS = ['😊', '🙂', '😐', '😟', '😣', '😫', '😭', '🤯'];
+
+const SYMPTOMS = [
+  { id: 'fatigue', label: 'Fatigue', emoji: '😴' },
+  { id: 'nausea', label: 'Nausea', emoji: '🤢' },
+  { id: 'dizziness', label: 'Dizziness', emoji: '😵' },
+  { id: 'shortness_of_breath', label: 'Breathless', emoji: '😮‍💨' },
+  { id: 'insomnia', label: 'Insomnia', emoji: '😫' },
+  { id: 'headache', label: 'Headache', emoji: '🤕' },
+];
+
+const MOODS = [
+  { id: 'great', label: 'Great', emoji: '😊', color: 'text-emerald-400' },
+  { id: 'good', label: 'Good', emoji: '🙂', color: 'text-teal-400' },
+  { id: 'okay', label: 'Okay', emoji: '😐', color: 'text-yellow-400' },
+  { id: 'low', label: 'Low', emoji: '😔', color: 'text-orange-400' },
+  { id: 'struggling', label: 'Struggling', emoji: '😢', color: 'text-rose-400' },
+];
+
+const WOUND_OPTIONS = [
+  { id: 'HEALING_WELL', label: 'Healing Well', color: 'selected-healing', emoji: '🟢' },
+  { id: 'MODERATE_REDNESS', label: 'Some Redness', color: 'selected-redness', emoji: '🟡' },
+  { id: 'SWELLING', label: 'Swelling', color: 'selected-swelling', emoji: '🟠' },
+  { id: 'CONCERNING', label: 'Concerning', color: 'selected-concerning', emoji: '🔴' },
+];
 
 const DailyCheckIn: React.FC = () => {
   const navigate = useNavigate();
   const { user, addCheckIn } = useAuth();
-  const [step, setStep] = useState(1);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [step, setStep] = useState(0);
+  const [formData, setFormData] = useState({
+    pain: 0,
+    temperature: 98.6,
+    hasFever: false,
+    woundStatus: 'HEALING_WELL' as any,
+    symptoms: [] as string[],
+    mood: 'great',
+    notes: '',
+  });
 
-  // Form state
-  const [pain, setPain] = useState(3);
-  const [temperature, setTemperature] = useState('98.6');
-  const [tempUnit, setTempUnit] = useState<'F' | 'C'>('F');
-  const [fever, setFever] = useState(false);
-  const [woundStatus, setWoundStatus] = useState<CheckIn['woundStatus']>('healing');
-  const [symptoms, setSymptoms] = useState<string[]>([]);
-  const [otherSymptoms, setOtherSymptoms] = useState('');
-  const [mood, setMood] = useState<CheckIn['mood']>('good');
-  const [notes, setNotes] = useState('');
+  const next = () => step < STEPS.length - 1 && setStep(s => s + 1);
+  const prev = () => step > 0 && setStep(s => s - 1);
 
-  const totalSteps = 6;
-
-  const emojiMap: { [key: number]: { emoji: string; color: string; label: string } } = {
-    0: { emoji: '😊', color: 'from-green-400 to-emerald-500', label: 'No pain' },
-    1: { emoji: '🙂', color: 'from-green-400 to-emerald-500', label: 'Minimal' },
-    2: { emoji: '😌', color: 'from-green-400 to-lime-500', label: 'Mild' },
-    3: { emoji: '😐', color: 'from-yellow-400 to-orange-400', label: 'Moderate' },
-    4: { emoji: '😕', color: 'from-yellow-400 to-orange-400', label: 'Moderate' },
-    5: { emoji: '😟', color: 'from-orange-400 to-red-400', label: 'Uncomfortable' },
-    6: { emoji: '😣', color: 'from-orange-400 to-red-500', label: 'Distressing' },
-    7: { emoji: '😖', color: 'from-red-400 to-red-600', label: 'Severe' },
-    8: { emoji: '😫', color: 'from-red-500 to-red-700', label: 'Very severe' },
-    9: { emoji: '😭', color: 'from-red-600 to-red-800', label: 'Extreme' },
-    10: { emoji: '😱', color: 'from-red-700 to-red-900', label: 'Worst possible' }
-  };
-
-  const moodOptions = [
-    { value: 'great', emoji: '😊', label: 'Great', color: 'from-green-400 to-emerald-500' },
-    { value: 'good', emoji: '🙂', label: 'Good', color: 'from-green-400 to-lime-500' },
-    { value: 'okay', emoji: '😐', label: 'Okay', color: 'from-yellow-400 to-orange-400' },
-    { value: 'down', emoji: '😔', label: 'Down', color: 'from-orange-400 to-red-400' },
-    { value: 'struggling', emoji: '😰', label: 'Struggling', color: 'from-red-400 to-red-600' }
-  ];
-
-  const symptomsList = [
-    { id: 'nausea', label: 'Nausea', emoji: '🤢' },
-    { id: 'dizziness', label: 'Dizziness', emoji: '💫' },
-    { id: 'shortness of breath', label: 'Shortness of breath', emoji: '😮‍💨' },
-    { id: 'fatigue', label: 'Unusual fatigue', emoji: '😴' },
-    { id: 'insomnia', label: 'Difficulty sleeping', emoji: '🌙' },
-    { id: 'headache', label: 'Headache', emoji: '🤕' }
-  ];
-
-  const woundOptions = [
-    { value: 'healing', label: 'Healing well', color: 'green', emoji: '✅' },
-    { value: 'redness', label: 'Some redness', color: 'yellow', emoji: '🟡' },
-    { value: 'swelling', label: 'Increased swelling', color: 'orange', emoji: '🟠' },
-    { value: 'concerning', label: 'Concerning changes', color: 'red', emoji: '🔴' }
-  ];
-
-  const calculateAlertLevel = (): CheckIn['alertLevel'] => {
-    if (pain > 7 || fever || woundStatus === 'concerning') return 'URGENT';
-    if (pain > 5 || symptoms.length > 2 || woundStatus === 'swelling') return 'MONITOR';
-    return 'NORMAL';
+  const handleSymptomToggle = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      symptoms: prev.symptoms.includes(id) 
+        ? prev.symptoms.filter(s => s !== id) 
+        : [...prev.symptoms, id]
+    }));
   };
 
   const handleSubmit = async () => {
-    setIsSubmitting(true);
+    if (!user) return;
     
-    const alertLevel = calculateAlertLevel();
-    
-    const checkInData: Omit<CheckIn, 'id'> = {
-      patientId: user?.id || 1,
+    const checkInData = {
+      patientId: user.id || 1,
       date: new Date().toISOString(),
-      pain,
-      temperature: parseFloat(temperature),
-      temperatureUnit: tempUnit,
-      fever,
-      woundStatus,
-      symptoms,
-      otherSymptoms,
-      mood,
-      notes,
-      alertLevel
+      ...formData,
+      alertLevel: formData.pain > 7 || formData.hasFever || formData.woundStatus === 'CONCERNING' ? 'URGENT' : 
+                  formData.pain > 4 || formData.woundStatus === 'SWELLING' ? 'MONITOR' : 'NORMAL'
     };
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
     addCheckIn(checkInData);
-    setShowConfetti(true);
+    
+    // Confetti celebration
+    confetti({
+      particleCount: 150,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#8b5cf6', '#ec4899', '#34d399']
+    });
 
-    if (alertLevel === 'URGENT') {
-      toast.error('Your caregiver has been notified about urgent symptoms.', {
-        duration: 5000,
-        icon: '🚨'
-      });
-    } else if (alertLevel === 'MONITOR') {
-      toast.success('Your caregiver will monitor your progress.', {
-        duration: 4000,
-        icon: '👀'
-      });
-    } else {
-      toast.success('Check-in complete! Keep up the great recovery!', {
-        duration: 4000,
-        icon: '🎉'
-      });
-    }
+    toast.success('Amazing job! Check-in submitted! 🎉', {
+      style: { background: 'linear-gradient(135deg, #10b981, #34d399)', color: '#fff', fontWeight: 800, borderRadius: '1.25rem' }
+    });
 
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 3000);
+    setTimeout(() => navigate('/dashboard'), 3000);
   };
 
-  const toggleSymptom = (symptom: string) => {
-    setSymptoms(prev => 
-      prev.includes(symptom)
-        ? prev.filter(s => s !== symptom)
-        : [...prev, symptom]
-    );
-  };
-
-  const nextStep = () => setStep(Math.min(totalSteps, step + 1));
-  const prevStep = () => setStep(Math.max(1, step - 1));
-
-  const renderStep = () => {
-    switch (step) {
-      case 1:
-        return (
-          <motion.div
-            key="step1"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-8"
-          >
-            <div className="text-center">
-              <Heart className="w-12 h-12 mx-auto mb-4 text-purple-600" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">How's your pain today?</h2>
-              <p className="text-gray-500 mt-2">Slide to rate your current pain level</p>
-            </div>
-
-            {/* Emoji display */}
-            <motion.div
-              key={pain}
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              className="text-center"
-            >
-              <div className={`
-                inline-flex items-center justify-center w-32 h-32 rounded-full
-                bg-gradient-to-br ${emojiMap[pain].color}
-                shadow-2xl mb-4
-              `}>
-                <span className="text-6xl">{emojiMap[pain].emoji}</span>
-              </div>
-              <p className="text-4xl font-bold text-gray-800">{pain}/10</p>
-              <p className="text-gray-600 font-medium mt-1">{emojiMap[pain].label}</p>
-            </motion.div>
-
-            {/* Slider */}
-            <div className="px-4">
-              <input
-                type="range"
-                min="0"
-                max="10"
-                value={pain}
-                onChange={(e) => setPain(Number(e.target.value))}
-                className="pain-slider w-full"
-              />
-              <div className="flex justify-between mt-3 text-sm text-gray-500 font-medium">
-                <span>No pain</span>
-                <span>Moderate</span>
-                <span>Severe</span>
-              </div>
-            </div>
-
-            {/* High pain warning */}
-            {pain > 7 && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-4 bg-red-50 border-l-4 border-red-500 rounded-xl"
-              >
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold text-red-800">High pain detected</p>
-                    <p className="text-sm text-red-700">Your caregiver will be notified</p>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </motion.div>
-        );
-
-      case 2:
-        return (
-          <motion.div
-            key="step2"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-8"
-          >
-            <div className="text-center">
-              <Thermometer className="w-12 h-12 mx-auto mb-4 text-orange-500" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Vital Signs</h2>
-              <p className="text-gray-500 mt-2">Let's check your temperature</p>
-            </div>
-
-            {/* Temperature input */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Temperature
-              </label>
-              <div className="flex gap-3">
-                <input
-                  type="number"
-                  step="0.1"
-                  value={temperature}
-                  onChange={(e) => setTemperature(e.target.value)}
-                  className="flex-1 px-4 py-4 bg-white/60 border-2 border-gray-200 rounded-2xl text-lg font-semibold text-gray-800 focus:border-purple-500 focus:bg-white transition-all"
-                />
-                <div className="flex bg-gray-100 rounded-xl p-1">
-                  {(['F', 'C'] as const).map((unit) => (
-                    <button
-                      key={unit}
-                      onClick={() => setTempUnit(unit)}
-                      className={`
-                        px-4 py-2 rounded-lg font-semibold transition-all
-                        ${tempUnit === unit
-                          ? 'bg-white text-purple-600 shadow-md'
-                          : 'text-gray-600'
-                        }
-                      `}
-                    >
-                      °{unit}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Fever toggle */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Do you have a fever?
-              </label>
-              <div className="flex gap-3">
-                {[
-                  { value: false, label: 'No', emoji: '😊' },
-                  { value: true, label: 'Yes', emoji: '🤒' }
-                ].map((option) => (
-                  <button
-                    key={String(option.value)}
-                    onClick={() => setFever(option.value)}
-                    className={`
-                      flex-1 py-4 rounded-2xl font-semibold text-lg transition-all border-2
-                      ${fever === option.value
-                        ? option.value
-                          ? 'bg-red-50 border-red-400 text-red-700'
-                          : 'bg-green-50 border-green-400 text-green-700'
-                        : 'bg-white/60 border-gray-200 text-gray-600 hover:border-purple-300'
-                      }
-                    `}
-                  >
-                    <span className="mr-2">{option.emoji}</span>
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {fever && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-4 bg-orange-50 border-l-4 border-orange-500 rounded-xl"
-              >
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="w-6 h-6 text-orange-600 flex-shrink-0" />
-                  <p className="text-orange-800">Fever reported - we'll alert your care team</p>
-                </div>
-              </motion.div>
-            )}
-          </motion.div>
-        );
-
-      case 3:
-        return (
-          <motion.div
-            key="step3"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-8"
-          >
-            <div className="text-center">
-              <span className="text-5xl mb-4 block">🩹</span>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Wound Assessment</h2>
-              <p className="text-gray-500 mt-2">How is your surgical site healing?</p>
-            </div>
-
-            <div className="space-y-3">
-              {woundOptions.map((option) => (
-                <motion.button
-                  key={option.value}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setWoundStatus(option.value as CheckIn['woundStatus'])}
-                  className={`
-                    w-full p-4 rounded-2xl text-left transition-all border-2 flex items-center gap-4
-                    ${woundStatus === option.value
-                      ? option.color === 'green'
-                        ? 'bg-green-50 border-green-400'
-                        : option.color === 'yellow'
-                        ? 'bg-yellow-50 border-yellow-400'
-                        : option.color === 'orange'
-                        ? 'bg-orange-50 border-orange-400'
-                        : 'bg-red-50 border-red-400'
-                      : 'bg-white/60 border-gray-200 hover:border-purple-300'
-                    }
-                  `}
-                >
-                  <span className="text-2xl">{option.emoji}</span>
-                  <span className="font-semibold text-gray-800">{option.label}</span>
-                  {woundStatus === option.value && (
-                    <CheckCircle2 className="w-5 h-5 ml-auto text-green-600" />
-                  )}
-                </motion.button>
-              ))}
-            </div>
-
-            <button className="w-full py-4 border-2 border-dashed border-gray-300 rounded-2xl text-gray-600 font-medium hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50/50 transition-all flex items-center justify-center gap-2">
-              <Camera className="w-5 h-5" />
-              Upload photo (optional)
-            </button>
-          </motion.div>
-        );
-
-      case 4:
-        return (
-          <motion.div
-            key="step4"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-8"
-          >
-            <div className="text-center">
-              <span className="text-5xl mb-4 block">📋</span>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Symptoms Check</h2>
-              <p className="text-gray-500 mt-2">Select any symptoms you're experiencing</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {symptomsList.map((symptom) => (
-                <motion.button
-                  key={symptom.id}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => toggleSymptom(symptom.id)}
-                  className={`
-                    p-4 rounded-2xl text-left transition-all border-2 flex items-center gap-3
-                    ${symptoms.includes(symptom.id)
-                      ? 'bg-purple-50 border-purple-400'
-                      : 'bg-white/60 border-gray-200 hover:border-purple-300'
-                    }
-                  `}
-                >
-                  <span className="text-xl">{symptom.emoji}</span>
-                  <span className={`text-sm font-semibold ${symptoms.includes(symptom.id) ? 'text-purple-700' : 'text-gray-700'}`}>
-                    {symptom.label}
-                  </span>
-                </motion.button>
-              ))}
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Other symptoms (optional)
-              </label>
-              <textarea
-                value={otherSymptoms}
-                onChange={(e) => setOtherSymptoms(e.target.value.slice(0, 500))}
-                placeholder="Describe any other symptoms..."
-                rows={3}
-                className="w-full px-4 py-3 bg-white/60 border-2 border-gray-200 rounded-2xl text-gray-800 focus:border-purple-500 focus:bg-white transition-all resize-none"
-              />
-              <p className="text-xs text-gray-500 text-right mt-1">{otherSymptoms.length}/500</p>
-            </div>
-          </motion.div>
-        );
-
-      case 5:
-        return (
-          <motion.div
-            key="step5"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-8"
-          >
-            <div className="text-center">
-              <Smile className="w-12 h-12 mx-auto mb-4 text-pink-500" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Mental Wellness</h2>
-              <p className="text-gray-500 mt-2">How are you feeling emotionally today?</p>
-            </div>
-
-            <div className="flex justify-center gap-2 sm:gap-4">
-              {moodOptions.map((option) => (
-                <motion.button
-                  key={option.value}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setMood(option.value as CheckIn['mood'])}
-                  className="relative group"
-                >
-                  <div className={`
-                    w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center
-                    transition-all duration-300
-                    ${mood === option.value
-                      ? `bg-gradient-to-br ${option.color} shadow-lg scale-110`
-                      : 'bg-gray-100 hover:bg-gray-200'
-                    }
-                  `}>
-                    <span className="text-2xl sm:text-3xl">{option.emoji}</span>
-                  </div>
-                  <span className={`
-                    block text-xs font-medium mt-2 transition-colors
-                    ${mood === option.value ? 'text-purple-600' : 'text-gray-500'}
-                  `}>
-                    {option.label}
-                  </span>
-                </motion.button>
-              ))}
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Anything else you'd like to share? (optional)
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="How are you feeling about your recovery?"
-                rows={3}
-                className="w-full px-4 py-3 bg-white/60 border-2 border-gray-200 rounded-2xl text-gray-800 focus:border-purple-500 focus:bg-white transition-all resize-none"
-              />
-            </div>
-          </motion.div>
-        );
-
-      case 6:
-        return (
-          <motion.div
-            key="step6"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
-            <div className="text-center">
-              <Sparkles className="w-12 h-12 mx-auto mb-4 text-purple-600" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Review & Submit</h2>
-              <p className="text-gray-500 mt-2">Please confirm your check-in details</p>
-            </div>
-
-            {/* Summary cards */}
-            <div className="space-y-4">
-              <div className="p-4 bg-white/60 rounded-2xl border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Pain Level</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{emojiMap[pain].emoji}</span>
-                    <span className="font-bold text-gray-800">{pain}/10</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 bg-white/60 rounded-2xl border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Temperature</span>
-                  <span className="font-bold text-gray-800">{temperature}°{tempUnit}</span>
-                </div>
-              </div>
-
-              <div className="p-4 bg-white/60 rounded-2xl border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Wound Status</span>
-                  <span className="font-bold text-gray-800 capitalize">
-                    {woundOptions.find(w => w.value === woundStatus)?.label}
-                  </span>
-                </div>
-              </div>
-
-              {symptoms.length > 0 && (
-                <div className="p-4 bg-white/60 rounded-2xl border border-gray-200">
-                  <span className="text-gray-600 block mb-2">Symptoms</span>
-                  <div className="flex flex-wrap gap-2">
-                    {symptoms.map(s => (
-                      <span key={s} className="px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full capitalize">
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="p-4 bg-white/60 rounded-2xl border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Mood</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{moodOptions.find(m => m.value === mood)?.emoji}</span>
-                    <span className="font-bold text-gray-800 capitalize">{mood}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Alert level preview */}
-            {calculateAlertLevel() !== 'NORMAL' && (
-              <div className={`
-                p-4 rounded-xl border-l-4
-                ${calculateAlertLevel() === 'URGENT'
-                  ? 'bg-red-50 border-red-500'
-                  : 'bg-yellow-50 border-yellow-500'
-                }
-              `}>
-                <div className="flex items-center gap-3">
-                  <AlertCircle className={`w-6 h-6 ${calculateAlertLevel() === 'URGENT' ? 'text-red-600' : 'text-yellow-600'}`} />
-                  <div>
-                    <p className={`font-semibold ${calculateAlertLevel() === 'URGENT' ? 'text-red-800' : 'text-yellow-800'}`}>
-                      {calculateAlertLevel() === 'URGENT' ? 'Urgent Alert' : 'Monitoring Alert'}
-                    </p>
-                    <p className={`text-sm ${calculateAlertLevel() === 'URGENT' ? 'text-red-700' : 'text-yellow-700'}`}>
-                      Your caregiver will be notified
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </motion.div>
-        );
-
-      default:
-        return null;
-    }
-  };
+  const currentStep = STEPS[step];
 
   return (
-    <div className="min-h-screen pb-8">
-      {showConfetti && <Confetti recycle={false} numberOfPieces={500} />}
-      <AnimatedBackground variant="mesh" />
-      <Header />
-
-      <main className="max-w-2xl mx-auto px-4 py-6 sm:py-8">
-        {/* Progress bar */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600">Step {step} of {totalSteps}</span>
-            <span className="text-sm font-medium text-purple-600">{Math.round((step / totalSteps) * 100)}%</span>
-          </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-purple-600 to-pink-600 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${(step / totalSteps) * 100}%` }}
-              transition={{ duration: 0.5 }}
-            />
-          </div>
+    <div className="min-h-screen flex flex-col relative overflow-hidden">
+      <AnimatedBackground />
+      
+      {/* Progress Header */}
+      <div className="max-w-3xl mx-auto w-full px-6 pt-10 relative z-10">
+        <div className="flex items-center justify-between mb-8 overflow-x-auto pb-4 scrollbar-hide gap-4">
+          {STEPS.map((s, i) => (
+            <React.Fragment key={s.id}>
+              <div className="flex flex-col items-center gap-2 shrink-0">
+                <div className={`step-dot ${i < step ? 'done' : i === step ? 'active' : 'upcoming'}`}>
+                  {i < step ? '✓' : s.icon}
+                </div>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${i === step ? 'text-violet-400' : 'text-slate-500'}`}>
+                  {s.label}
+                </span>
+              </div>
+              {i < STEPS.length - 1 && (
+                <div className={`step-line ${i < step ? 'done' : ''}`} />
+              )}
+            </React.Fragment>
+          ))}
         </div>
+      </div>
 
-        <GlassCard padding="lg">
+      {/* Main Form Area */}
+      <main className="flex-1 flex items-center justify-center p-6 relative z-10">
+        <div className="w-full max-w-2xl">
           <AnimatePresence mode="wait">
-            {renderStep()}
-          </AnimatePresence>
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, x: 20, scale: 0.98 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -20, scale: 0.98 }}
+              transition={{ duration: 0.3, type: 'spring', damping: 25 }}
+            >
+              <div className="glass-card-static rounded-[3rem] p-8 md:p-12 border-white/5 shadow-2xl">
+                
+                {/* Step Content */}
+                {currentStep.id === 'pain' && (
+                  <div className="text-center space-y-10">
+                    <div>
+                      <h2 className="text-4xl font-extrabold gradient-text mb-2">How's your pain?</h2>
+                      <p className="text-slate-400 font-medium">Drag to match how you feel right now</p>
+                    </div>
 
-          {/* Navigation */}
-          <div className="flex gap-4 mt-8">
-            {step > 1 && (
-              <GradientButton
-                variant="outline"
-                onClick={prevStep}
-                icon={<ArrowLeft className="w-5 h-5" />}
-              >
-                Back
-              </GradientButton>
-            )}
-            
-            {step < totalSteps ? (
-              <GradientButton
-                fullWidth
-                onClick={nextStep}
-                icon={<ArrowRight className="w-5 h-5" />}
-                className="flex-1"
-              >
-                Continue
-              </GradientButton>
-            ) : (
-              <GradientButton
-                fullWidth
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                icon={isSubmitting ? undefined : <Send className="w-5 h-5" />}
-                className="flex-1"
-              >
-                {isSubmitting ? (
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
-                  />
-                ) : (
-                  'Submit Check-in'
+                    <div className="relative py-10">
+                      <motion.div 
+                        initial={{ scale: 0.5 }} animate={{ scale: 1 }}
+                        className="text-9xl mb-10 inline-block drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                      >
+                         {PAIN_EMOJIS[Math.min(Math.floor(formData.pain / 1.3), 7)]}
+                      </motion.div>
+                      <div className="text-5xl font-black text-white mb-8 tracking-tighter">
+                        {formData.pain}<span className="text-2xl text-slate-500">/10</span>
+                      </div>
+                      <input 
+                        type="range" min="0" max="10" step="1" 
+                        value={formData.pain} 
+                        onChange={e => setFormData(p => ({ ...p, pain: parseInt(e.target.value) }))}
+                        className="pain-slider"
+                      />
+                      <div className="flex justify-between mt-4 text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">
+                         <span>Peaceful 🧘</span>
+                         <span>Intense 🌋</span>
+                      </div>
+                    </div>
+
+                    {formData.pain > 7 && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                        className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex items-center gap-3 text-rose-400"
+                      >
+                        <AlertTriangle className="w-5 h-5 shrink-0" />
+                        <p className="text-sm font-bold text-left">High pain detected. Your caregiver will be alerted once you submit.</p>
+                      </motion.div>
+                    )}
+                  </div>
                 )}
-              </GradientButton>
-            )}
-          </div>
-        </GlassCard>
+
+                {currentStep.id === 'vitals' && (
+                  <div className="space-y-10">
+                    <div className="text-center">
+                      <h2 className="text-4xl font-extrabold gradient-text mb-2">Check Vitals 🌡️</h2>
+                      <p className="text-slate-400 font-medium">Record your body temperature</p>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row items-center gap-12 justify-center">
+                      <div className="relative h-64 w-12 bg-white/5 rounded-full border border-white/10 overflow-hidden flex flex-col justify-end">
+                        <motion.div 
+                          initial={{ height: 0 }}
+                          animate={{ height: `${Math.min(100, (formData.temperature - 90) * 10)}%` }}
+                          className={`w-full rounded-full transition-colors duration-500 ${formData.hasFever ? 'bg-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.6)]' : 'bg-teal-400 shadow-[0_0_20px_rgba(52,211,153,0.6)]'}`}
+                        />
+                      </div>
+
+                      <div className="space-y-8 flex-1 w-full">
+                        <div className="glass-card-static rounded-3xl p-6 border-white/5">
+                          <label className="text-xs font-bold text-slate-500 uppercase mb-3 block">Temperature (°F)</label>
+                          <div className="flex items-center gap-4">
+                            <input 
+                              type="number" step="0.1" value={formData.temperature}
+                              onChange={e => setFormData(p => ({ ...p, temperature: parseFloat(e.target.value) }))}
+                              className="bg-transparent text-5xl font-black text-white w-full outline-none border-b-2 border-white/10 focus:border-violet-500 transition-colors"
+                            />
+                            <div className="p-3 bg-violet-500/20 text-violet-400 rounded-2xl"><Thermometer className="w-8 h-8" /></div>
+                          </div>
+                        </div>
+
+                        <div 
+                          className={`p-6 rounded-3xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                            formData.hasFever ? 'bg-rose-500/10 border-rose-500/40 text-rose-400' : 'bg-white/5 border-white/10 text-slate-400'
+                          }`}
+                          onClick={() => setFormData(p => ({ ...p, hasFever: !p.hasFever }))}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{formData.hasFever ? '🤒' : '😊'}</span>
+                            <span className="font-bold">I have a fever</span>
+                          </div>
+                          <div className={`w-14 h-8 rounded-full relative transition-colors ${formData.hasFever ? 'bg-rose-500' : 'bg-white/10'}`}>
+                            <motion.div 
+                              animate={{ x: formData.hasFever ? 28 : 4 }}
+                              className="absolute top-1 w-6 h-6 bg-white rounded-full shadow-lg"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {currentStep.id === 'wound' && (
+                  <div className="space-y-10">
+                    <div className="text-center">
+                      <h2 className="text-4xl font-extrabold gradient-text mb-2">Wound Status 🩹</h2>
+                      <p className="text-slate-400 font-medium">How is your incision healing?</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      {WOUND_OPTIONS.map(opt => (
+                        <div 
+                          key={opt.id}
+                          onClick={() => setFormData(p => ({ ...p, woundStatus: opt.id }))}
+                          className={`wound-card ${formData.woundStatus === opt.id ? opt.color : ''}`}
+                        >
+                          <div className="text-3xl mb-3">{opt.emoji}</div>
+                          <div className="font-extrabold text-sm mb-1">{opt.label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="glass-card-static rounded-3xl p-8 border-dashed border-2 border-white/10 text-center group cursor-pointer hover:border-violet-500/40 transition-all">
+                       <Camera className="w-10 h-10 text-slate-500 mx-auto mb-3 group-hover:text-violet-400 transition-colors" />
+                       <p className="text-sm font-bold text-slate-400 group-hover:text-violet-300">Upload Wound Photo (Optional)</p>
+                    </div>
+                  </div>
+                )}
+
+                {currentStep.id === 'symptoms' && (
+                  <div className="space-y-10">
+                    <div className="text-center">
+                      <h2 className="text-4xl font-extrabold gradient-text mb-2">Symptoms 🤔</h2>
+                      <p className="text-slate-400 font-medium">Are you feeling any of these?</p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 justify-center">
+                      {SYMPTOMS.map(s => (
+                        <div 
+                          key={s.id}
+                          onClick={() => handleSymptomToggle(s.label)}
+                          className={`symptom-pill ${formData.symptoms.includes(s.label) ? 'selected' : ''}`}
+                        >
+                          {s.emoji} {s.label}
+                        </div>
+                      ))}
+                    </div>
+
+                    <textarea 
+                      placeholder="Other symptoms or notes..."
+                      value={formData.notes}
+                      onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
+                      className="glass-input !px-5 h-32 resize-none"
+                    />
+                  </div>
+                )}
+
+                {currentStep.id === 'mood' && (
+                  <div className="space-y-10">
+                    <div className="text-center">
+                      <h2 className="text-4xl font-extrabold gradient-text mb-2">Daily Mood 💜</h2>
+                      <p className="text-slate-400 font-medium">How are you feeling emotionally?</p>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                       {MOODS.map(m => (
+                         <div 
+                           key={m.id}
+                           onClick={() => setFormData(p => ({ ...p, mood: m.id }))}
+                           className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                             formData.mood === m.id 
+                               ? 'bg-violet-500/10 border-violet-500/40' 
+                               : 'bg-white/4 border-white/5 hover:border-white/10'
+                           }`}
+                         >
+                            <div className="flex items-center gap-4">
+                              <span className="text-4xl">{m.emoji}</span>
+                              <span className={`text-xl font-black ${formData.mood === m.id ? m.color : 'text-slate-400'}`}>{m.label}</span>
+                            </div>
+                            {formData.mood === m.id && <CheckCircle2 className={`w-6 h-6 ${m.color}`} />}
+                         </div>
+                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {currentStep.id === 'review' && (
+                  <div className="space-y-8">
+                    <div className="text-center">
+                      <h2 className="text-4xl font-extrabold gradient-text mb-2">Review Summary</h2>
+                      <p className="text-slate-400 font-medium">Double check your report</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                       {[
+                         { label: 'Pain', val: `${formData.pain}/10`, icon: '🔥', color: formData.pain > 7 ? 'text-rose-400' : 'text-emerald-400' },
+                         { label: 'Temp', val: `${formData.temperature}°F`, icon: '🌡️', color: formData.hasFever ? 'text-rose-400' : 'text-teal-400' },
+                         { label: 'Wound', val: formData.woundStatus.replace('_', ' '), icon: '🩹', color: 'text-violet-400' },
+                         { label: 'Mood', val: formData.mood, icon: '💜', color: 'text-pink-400' }
+                       ].map(s => (
+                         <div key={s.label} className="bg-white/4 border border-white/5 rounded-[2rem] p-5">
+                            <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">{s.label}</div>
+                            <div className={`text-xl font-black ${s.color}`}>{s.icon} {s.val}</div>
+                         </div>
+                       ))}
+                    </div>
+
+                    {formData.symptoms.length > 0 && (
+                      <div className="bg-white/4 border border-white/5 rounded-[2rem] p-6">
+                        <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Symptoms Reported</div>
+                        <div className="flex flex-wrap gap-2">
+                           {formData.symptoms.map(s => <span key={s} className="px-3 py-1 bg-violet-500/10 text-violet-400 rounded-full text-xs font-bold">{s}</span>)}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="bg-gradient-to-br from-violet-600/20 to-pink-600/20 border border-white/10 rounded-[2rem] p-6 text-center">
+                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Estimated Reward</p>
+                       <div className="flex items-center justify-center gap-2 text-3xl font-black text-white">
+                         <Zap className="text-yellow-400 fill-yellow-400" /> +50 XP
+                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer Controls */}
+                <div className="mt-12 pt-8 border-t border-white/5 flex items-center justify-between">
+                  <button 
+                    onClick={prev} disabled={step === 0}
+                    className="flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-slate-400 hover:text-white disabled:opacity-0 transition-all"
+                  >
+                    <ChevronLeft /> Back
+                  </button>
+
+                  {step === STEPS.length - 1 ? (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                      onClick={handleSubmit}
+                      className="btn-primary"
+                    >
+                      <span className="flex items-center gap-2">Finish Mission ✨</span>
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                      onClick={next}
+                      className="btn-primary"
+                    >
+                      <span className="flex items-center gap-2">Next Step <ChevronRight /></span>
+                    </motion.button>
+                  )}
+                </div>
+
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </main>
+
+      <div className="max-w-2xl mx-auto w-full px-6 pb-10 text-center relative z-10">
+        <p className="text-xs text-slate-500 font-medium">Your information is protected by healthcare-grade encryption 🔒</p>
+      </div>
     </div>
   );
 };

@@ -10,13 +10,47 @@ import DailyCheckIn from './pages/DailyCheckIn';
 import CaregiverDashboard from './pages/CaregiverDashboard';
 import PatientDetail from './pages/PatientDetail';
 import SettingsPage from './pages/SettingsPage';
+import CaregiverVoiceAssistant from './components/CaregiverVoiceAssistant';
+import VoiceAssistant from './components/VoiceAssistant';
+import RegisterPage from './pages/RegisterPage';
+
+class ErrorBoundary extends React.Component<any, any> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, background: 'white', color: 'red', padding: '20px', overflow: 'auto' }}>
+          <h1>Something went wrong in the component.</h1>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{(this.state.error && this.state.error.toString())}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{(this.state.error && this.state.error.stack)}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ 
   children: React.ReactNode;
   allowedRoles?: ('patient' | 'caregiver')[];
 }> = ({ children, allowedRoles }) => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-10 h-10 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
   
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -48,6 +82,11 @@ const AppRoutes: React.FC = () => {
       <Route path="/login" element={
         <PublicRoute>
           <LoginPage />
+        </PublicRoute>
+      } />
+      <Route path="/register" element={
+        <PublicRoute>
+          <RegisterPage />
         </PublicRoute>
       } />
 
@@ -127,6 +166,10 @@ const App: React.FC = () => {
           }}
         />
         
+        <ErrorBoundary>
+          <CaregiverVoiceAssistant />
+          <VoiceAssistant />
+        </ErrorBoundary>
         <AppRoutes />
       </AuthProvider>
     </BrowserRouter>

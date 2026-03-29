@@ -16,4 +16,16 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  server: {
+    proxy: {
+      '/api/nvidia': {
+        target: 'https://integrate.api.nvidia.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/nvidia/, '/v1'),
+        headers: {
+          'Origin': 'https://integrate.api.nvidia.com'
+        }
+      }
+    }
+  }
 });
