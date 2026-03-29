@@ -59,12 +59,19 @@ const CaregiverVoiceAssistant: React.FC = () => {
     source.connect(processor);
     processor.connect(audioContext.destination);
 
+    let lastFinal = '';
     processor.onaudioprocess = (e) => {
       recognizer.acceptWaveform(e.inputBuffer.getChannelData(0));
-      const result = recognizer.result();
-      if (result.text) {
-        setTranscript(result.text);
-        transcriptRef.current = result.text;
+      const res = recognizer.result();
+      if (res.text && res.text !== lastFinal) {
+        setTranscript(res.text);
+        transcriptRef.current = res.text;
+        lastFinal = res.text;
+      } else {
+        const partial = recognizer.partialResult();
+        if (partial.partial) {
+          setTranscript(partial.partial);
+        }
       }
     };
     setIsListening(true);
