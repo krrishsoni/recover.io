@@ -1,8 +1,12 @@
 {
   "rewrites": [
     {
+      "source": "/api/nvidia/chat/completions",
+      "destination": "https://integrate.api.nvidia.com/v1/chat/completions"
+    },
+    {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/"
     }
   ]
 }

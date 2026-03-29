@@ -28,7 +28,7 @@ const CaregiverVoiceAssistant: React.FC = () => {
 
   // NVIDIA API config
   const apiKey = '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';
-  const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+  const NVIDIA_API_URL = '/api/nvidia/chat/completions';
 
   useEffect(() => {
     if (navigator.permissions) {
