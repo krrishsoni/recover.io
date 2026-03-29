@@ -1,76 +1,84 @@
-# RecoverAI: Intelligent Post-Op Recovery Management
+# 🛡️ RecoverAI: Intelligent Post-Op Recovery Management
 
-RecoverAI is a state-of-the-art, AI-powered recovery platform designed to bridge the gap between post-operative patients and their caregivers. By leveraging real-time data synchronization and advanced Large Language Models, RecoverAI ensures a safer, more transparent recovery process.
+> **"Recover faster, safer, and smarter."**
 
-## 🚀 Key Features
+RecoverAI is a state-of-the-art, AI-powered healthcare platform designed to bridge the gap between post-operative patients and their caregivers. By leveraging real-time data synchronization and advanced Large Language Models, RecoverAI ensures a proactive and transparent recovery journey.
 
-### 👨‍⚕️ For Caregivers (Nurses & Doctors)
-- **Real-time Ward Monitoring**: A live "Bento-style" dashboard that updates instantly when patients submit check-ins.
-- **AI-Powered Analysis**: An integrated voice assistant (NVIDIA Llama 3.1) that can answer questions like "Which patient has the highest pain?" or "Summarize today's tasks."
-- **Automatic Medical Reports**: The AI can generate and save patient progress reports directly into medical records with a single voice command.
-- **Priority Alerts**: Visual cues for patients requiring immediate attention (high fever, severe pain, or wound issues).
+---
 
-### 🤕 For Patients
-- **Daily Recovery Tracking**: Simple, intuitive forms to log pain levels, mood, temperature, and symptoms.
-- **Guided Tasks**: A personalized daily checklist for medications, physical therapy, and wound care.
-- **Recovery Partner AI**: A dedicated chatbot to answer recovery-related questions ("Is a 101°F fever normal?") and provide moral support.
-- **Gamification**: Interactive streaks and XP systems to keep patients motivated during their recovery journey.
+## 🌟 Key Features
+
+### 👨‍⚕️ For Caregivers (The Command Center)
+- **Live Ward Monitoring**: A dynamic, Bento-style dashboard providing real-time visibility into every patient's recovery status.
+- **AI Intelligence (NVIDIA Llama 3.1)**: Ask complex ward-level questions like *"Who had the highest pain today?"* or *"Summarize patient check-ins."*
+- **One-Click Medical Reports**: Generate professional medical summaries via voice commands, saved directly to patient records.
+- **Smart Alerts**: Instant visual indicators for critical metrics like high fever, severe pain, or wound health warnings.
+
+### 🤕 For Patients (Your Personal Recovery Guide)
+- **Intuitive Check-ins**: Log pain, mood, temperature, and symptoms in seconds via a mobile-optimized interface.
+- **Daily Task Roadmap**: Never miss a medication or exercise with a personalized, guided checklist.
+- **24/7 Recovery Partner AI**: Chat with a medical-trained AI to answer concerns (*"Is my swelling normal?"*) and receive emotional support.
+- **Gamified Progress**: Earn XP, maintain streaks, and celebrate milestones to stay motivated during difficult recovery phases.
+
+---
 
 ## 🛠️ Technology Stack
 
-RecoverAI is built using modern, high-performance web technologies:
+RecoverAI uses a premium, high-performance tech stack for a seamless user experience:
 
-- **Frontend**: [React 19](https://react.dev/) with [Vite](https://vitejs.dev/) & [TypeScript](https://www.typescriptlang.org/).
-- **Database & Sync**: [Firebase Firestore](https://firebase.google.com/) for real-time, cross-device data synchronization.
-- **Authentication**: [Firebase Auth](https://firebase.google.com/docs/auth) for secure patient/caregiver identity management.
-- **Artificial Intelligence**: 
-  - **LLM**: [NVIDIA NIM](https://www.nvidia.com/en-us/ai-data-science/generative-ai/nim/) (Meta Llama 3.1 8B) for medical context processing.
-  - **Speech Processing**: [Vosk Browser](https://alphacephei.com/vosk/) for high-accuracy voice-to-text.
-- **Styling & Animations**: [Tailwind CSS](https://tailwindcss.com/) & [Framer Motion](https://www.framer.com/motion/) for a premium, glassmorphic UI.
-- **Data Visualization**: [Recharts](https://recharts.org/) for tracking patient recovery trends visually.
+- **Frontend Core**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/)
+- **Real-time Engine**: [Firebase Cloud Firestore](https://firebase.google.com/)
+- **Identity & Security**: [Firebase Auth](https://firebase.google.com/docs/auth)
+- **Medical AI (NIM)**: [NVIDIA NVIDIA Llama 3.1 8B](https://www.nvidia.com/en-us/ai-data-science/generative-ai/nim/)
+- **Voice Recognition**: [Vosk Browser](https://alphacephei.com/vosk/) (Offline-first speech-to-text)
+- **Visual Systems**: [Recharts](https://recharts.org/) (Data Trends) & [Framer Motion](https://www.framer.com/motion/) (Micro-animations)
+- **Design Language**: Glassmorphism with [Tailwind CSS](https://tailwindcss.com/)
 
-## 📑 Core Functions
+---
+
+## 📑 Core Functionality
 
 ### 1. Unified AI Assistant
-The AI assistant is role-aware. It understands whether it's talking to a caregiver (ward-level data) or a patient (personal data). It uses a "Single Source of Truth" speech engine to prevent word duplication and ensures context-aware responses.
+A single, role-aware AI component serves both roles. It automatically switches context based on the logged-in user, ensuring strict data privacy for patients and comprehensive data access for caregivers.
 
-### 2. Live Patient Dashboard
-Caregivers can click on any patient to see their full history, charts of their pain trends over time, and a list of all successful/missed tasks.
+### 2. Patient Enrollment & Sync
+Registering a new patient immediately populates the caregiver's dashboard via real-time listeners. No refreshing is ever required to see new data.
 
-### 3. Patient Enrollment
-New patients can register via the dedicated Register page, where their profile is instantly created and synced to the global caregiver dashboard.
+### 3. Trend Analytics
+RecoverAI plots daily metrics over time, allowing caregivers to identify recovery patterns and intervene before complications arise.
 
-### 4. Interactive Check-ins
-Patients perform daily check-ins using a multi-step form that captures vital metrics, which are then analyzed by the AI for any red flags.
+---
 
 ## 💻 Getting Started
 
 ### Prerequisites
 - Node.js (v18+)
-- Firebase Account
+- Firebase Project Credentials
 - NVIDIA NIM API Key
 
-### Installation
-1. Clone the repository:
+### Installation & Launch
+1. **Clone & Install**:
    ```bash
    git clone [repository-url]
-   ```
-2. Install dependencies:
-   ```bash
+   cd recoverai-app
    npm install
    ```
-3. Create a `.env` file and add your credentials:
+2. **Setup Environment**:
+   Create a `.env` file in the root:
    ```env
    VITE_FIREBASE_API_KEY=your_key
    VITE_NVIDIA_API_KEY=your_key
    ```
-4. Run the development server:
+3. **Run**:
    ```bash
    npm run dev
    ```
 
+---
+
 ## 🌐 Deployment
-RecoverAI is optimized for deployment on **Vercel**. It includes a specialized `vercel.json` configuration to handle Edge Function rewrites for bypassing CORS restrictions on NVIDIA's API.
+RecoverAI is optimized for **Vercel**. 
+The project includes a `vercel.json` file to handle **Edge Network Proxying**, which bypasses CORS restrictions and ensures the AI chatbot works flawlessly on mobile devices.
 
 ---
-**RecoverAI** — *Recover faster, safer, and smarter.*
+*Created with ❤️ by the RecoverAI Team.*
