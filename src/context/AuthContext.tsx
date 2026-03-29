@@ -6,7 +6,7 @@ import {
   onAuthStateChanged,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
 // ═══════════════════════════════════════════════════════════
@@ -259,6 +259,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [caregiverNotes, setCaregiverNotes] = useState<CaregiverNote[]>([]);
+  const [patientsUnsubscribe, setPatientsUnsubscribe] = useState<(() => void) | null>(null);
 
   // Initialize mock data once
   useEffect(() => {
@@ -302,17 +303,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser(userData);
             localStorage.setItem('recoverai_user', JSON.stringify(userData));
 
-            // Load this user's patients/caregivers from Firestore and merge with local state
             if (data.role === 'patient') {
               await loadFirebasePatient(firebaseUser.uid, data);
             } else if (data.role === 'caregiver') {
-              await loadFirebaseCaregiver(firebaseUser.uid, data);
+              const unsub = await loadFirebaseCaregiver(firebaseUser.uid, data);
+              setPatientsUnsubscribe(() => unsub);
             }
           }
         } catch (err) {
           console.error('Error loading user profile:', err);
         }
       } else {
+        if (patientsUnsubscribe) {
+          patientsUnsubscribe();
+          setPatientsUnsubscribe(null);
+        }
         setUser(null);
         localStorage.removeItem('recoverai_user');
       }
@@ -380,10 +385,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
     }
 
-    const patientsSnap = await getDocs(collection(db, 'patients'));
-    if (!patientsSnap.empty) {
+    // Real-time listener for all patients (so caregivers see new signups instantly)
+    const unsubscribePatients = onSnapshot(collection(db, 'patients'), (snapshot) => {
       const fetchedPatients: Patient[] = [];
-      patientsSnap.forEach(pDoc => {
+      snapshot.forEach(pDoc => {
         const pData = pDoc.data();
         fetchedPatients.push({
           id: pData.numericId || Date.now(),
@@ -399,22 +404,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           emergencyContact: pData.emergencyContact,
         });
       });
+
       setPatients(prev => {
         const updated = [...prev];
         fetchedPatients.forEach(fp => {
-          // If the patient is not in prev by ID or UID, add them
           const existingIndex = updated.findIndex(p => (p.uid === fp.uid) || (p.id === fp.id));
           if (existingIndex === -1) {
             updated.push(fp);
           } else {
-            // Update existing with fetched data
             updated[existingIndex] = { ...updated[existingIndex], ...fp };
           }
         });
         localStorage.setItem('recoverai_patients', JSON.stringify(updated));
         return updated;
       });
-    }
+    });
+
+    return unsubscribePatients;
   };
 
   // ── REGISTER PATIENT ─────────────────────────────────────

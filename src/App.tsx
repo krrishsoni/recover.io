@@ -10,8 +10,7 @@ import DailyCheckIn from './pages/DailyCheckIn';
 import CaregiverDashboard from './pages/CaregiverDashboard';
 import PatientDetail from './pages/PatientDetail';
 import SettingsPage from './pages/SettingsPage';
-import CaregiverVoiceAssistant from './components/CaregiverVoiceAssistant';
-import VoiceAssistant from './components/VoiceAssistant';
+import AIVoiceAssistant from './components/AIVoiceAssistant';
 import RegisterPage from './pages/RegisterPage';
 
 class ErrorBoundary extends React.Component<any, any> {
@@ -167,8 +166,7 @@ const App: React.FC = () => {
         />
         
         <ErrorBoundary>
-          <CaregiverVoiceAssistant />
-          <VoiceAssistant />
+          <AIVoiceAssistant />
         </ErrorBoundary>
         <AppRoutes />
       </AuthProvider>
