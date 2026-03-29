@@ -24,15 +24,59 @@ const CaregiverVoiceAssistant: React.FC = () => {
 
   const { user, patients, checkIns, tasks, addCaregiverNote } = useAuth();
   const recognitionRef = useRef<any>(null);
-    // Store only final transcript
-    const transcriptRef = useRef('');
-
-    // Utility: Deduplicate repeated words in a string
-    function deduplicateWords(str: string) {
-      return str.replace(/(\b\w+\b)(?:\s+\1\b)+/gi, '$1');
-    }
   const transcriptRef = useRef('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Vosk state
+  const [voskModel, setVoskModel] = useState<Model | null>(null);
+  const [isVoskReady, setIsVoskReady] = useState(false);
+  const voskRecognizerRef = useRef<KaldiRecognizer | null>(null);
+  const voskAudioContextRef = useRef<AudioContext | null>(null);
+  const voskProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const voskStreamRef = useRef<MediaStream | null>(null);
+
+  // Load Vosk model on mount
+  useEffect(() => {
+    Model.create('/vosk-model-small-en-us-0.15').then(model => {
+      setVoskModel(model);
+      setIsVoskReady(true);
+    });
+  }, []);
+
+  // Start Vosk recognition
+  const startVoskRecognition = async () => {
+    if (!voskModel) return;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    voskStreamRef.current = stream;
+    const recognizer = new KaldiRecognizer(voskModel, 16000);
+    voskRecognizerRef.current = recognizer;
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    voskAudioContextRef.current = audioContext;
+    const source = audioContext.createMediaStreamSource(stream);
+    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+    voskProcessorRef.current = processor;
+
+    source.connect(processor);
+    processor.connect(audioContext.destination);
+
+    processor.onaudioprocess = (e) => {
+      recognizer.acceptWaveform(e.inputBuffer.getChannelData(0));
+      const result = recognizer.result();
+      if (result.text) {
+        setTranscript(result.text);
+        transcriptRef.current = result.text;
+      }
+    };
+    setIsListening(true);
+  };
+
+  // Stop Vosk recognition
+  const stopVoskRecognition = () => {
+    voskProcessorRef.current?.disconnect();
+    voskAudioContextRef.current?.close();
+    voskStreamRef.current?.getTracks().forEach(track => track.stop());
+    setIsListening(false);
+  };
 
   // NVIDIA API config
   const apiKey = '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';
@@ -502,7 +546,7 @@ ${buildContext()}`;
                 <div className="px-4 pb-4 pt-2 shrink-0 border-t border-white/8">
                   <div className="flex items-end gap-2">
                     <button
-                      onClick={toggleListening}
+                      onClick={isListening ? stopVoskRecognition : startVoskRecognition}
                       title={micPermission === 'denied' ? 'Mic blocked' : isListening ? 'Stop' : 'Speak'}
                       className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all shadow-md ${
                         micPermission === 'denied' ? 'bg-white/10 text-slate-500 cursor-not-allowed'
