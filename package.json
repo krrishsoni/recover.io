@@ -21,7 +21,8 @@
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.13.2",
     "recharts": "^3.8.1",
-    "tailwind-merge": "3.4.0"
+    "tailwind-merge": "3.4.0",
+    "vosk-browser": "^0.0.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.17",
