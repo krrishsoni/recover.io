@@ -296,10 +296,26 @@ Be brief, professional, and empathetic.`;
       const rec = new SR();
       rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US';
       rec.onresult = (e: any) => { 
-        let t = ''; 
-        for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; 
-        setTranscript(t); 
-        transcriptRef.current = t;
+        let interimTranscript = '';
+        let finalTranscript = '';
+        
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const transcriptSegment = e.results[i][0].transcript;
+          if (e.results[i].isFinal) {
+            finalTranscript += transcriptSegment;
+          } else {
+            interimTranscript += transcriptSegment;
+          }
+        }
+        
+        // Update user display with full combined transcript
+        const fullDisplay = (transcriptRef.current + finalTranscript + interimTranscript).trim();
+        setTranscript(fullDisplay);
+        
+        // Persist final segments to our long-term reference
+        if (finalTranscript) {
+          transcriptRef.current += finalTranscript;
+        }
       };
       rec.onend = () => setIsListening(false);
       recognitionRef.current = rec;
