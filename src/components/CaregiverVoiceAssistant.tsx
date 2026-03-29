@@ -24,6 +24,7 @@ const CaregiverVoiceAssistant: React.FC = () => {
 
   const { user, patients, checkIns, tasks, addCaregiverNote } = useAuth();
   const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // NVIDIA API config
@@ -283,6 +284,7 @@ ${buildContext()}`;
         }
         const fullDisplay = (fullFinal + fullInterim).trim();
         setTranscript(fullDisplay);
+        transcriptRef.current = fullFinal.trim();
       };
       rec.onerror = (e: any) => {
         setIsListening(false);
@@ -295,6 +297,7 @@ ${buildContext()}`;
       recognitionRef.current = rec;
       rec.start();
       setTranscript('');
+      transcriptRef.current = '';
       setIsListening(true);
     } catch (e) {
       console.error(e);
@@ -306,7 +309,13 @@ ${buildContext()}`;
     if (isListening) {
       try { recognitionRef.current?.stop(); } catch (_) {}
       setIsListening(false);
-      if (transcript.trim()) { setTextInput(''); processQuery(transcript); setTranscript(''); }
+      const finalTranscript = transcriptRef.current || transcript;
+      if (finalTranscript.trim()) {
+        setTextInput('');
+        processQuery(finalTranscript);
+        setTranscript('');
+        transcriptRef.current = '';
+      }
       return;
     }
     if (micPermission === 'denied') { toast.error('Mic is blocked. Use text input.'); return; }
