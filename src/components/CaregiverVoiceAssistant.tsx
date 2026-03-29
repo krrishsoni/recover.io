@@ -24,6 +24,13 @@ const CaregiverVoiceAssistant: React.FC = () => {
 
   const { user, patients, checkIns, tasks, addCaregiverNote } = useAuth();
   const recognitionRef = useRef<any>(null);
+    // Store only final transcript
+    const transcriptRef = useRef('');
+
+    // Utility: Deduplicate repeated words in a string
+    function deduplicateWords(str: string) {
+      return str.replace(/(\b\w+\b)(?:\s+\1\b)+/gi, '$1');
+    }
   const transcriptRef = useRef('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -268,7 +275,7 @@ ${buildContext()}`;
     try {
       const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const rec = new SR();
-      rec.continuous = false;
+      rec.continuous = true; // Use continuous mode for better result handling
       rec.interimResults = true;
       rec.lang = 'en-US';
       rec.onresult = (e: any) => {
@@ -283,17 +290,22 @@ ${buildContext()}`;
           }
         }
         const fullDisplay = (fullFinal + fullInterim).trim();
+        console.log('Speech onresult:', { fullFinal, fullInterim, fullDisplay });
         setTranscript(fullDisplay);
         transcriptRef.current = fullFinal.trim();
       };
       rec.onerror = (e: any) => {
         setIsListening(false);
+        console.error('SpeechRecognition error:', e);
         if (e.error === 'not-allowed') {
           setMicPermission('denied');
           toast.error('Mic denied.');
         }
       };
-      rec.onend = () => setIsListening(false);
+      rec.onend = () => {
+        setIsListening(false);
+        console.log('SpeechRecognition ended');
+      };
       recognitionRef.current = rec;
       rec.start();
       setTranscript('');
@@ -309,8 +321,9 @@ ${buildContext()}`;
     if (isListening) {
       try { recognitionRef.current?.stop(); } catch (_) {}
       setIsListening(false);
-      const finalTranscript = transcriptRef.current || transcript;
-      if (finalTranscript.trim()) {
+      let finalTranscript = transcriptRef.current || transcript;
+      finalTranscript = deduplicateWords(finalTranscript.trim());
+      if (finalTranscript) {
         setTextInput('');
         processQuery(finalTranscript);
         setTranscript('');
