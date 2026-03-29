@@ -267,15 +267,39 @@ ${buildContext()}`;
     try {
       const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const rec = new SR();
-      rec.continuous = false; rec.interimResults = true; rec.lang = 'en-US';
-      rec.onresult = (e: any) => { let t = ''; for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript; setTranscript(t); };
-      rec.onerror = (e: any) => { setIsListening(false); if (e.error === 'not-allowed') { setMicPermission('denied'); toast.error('Mic denied.'); } };
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+      rec.onresult = (e: any) => {
+        let fullFinal = '';
+        let fullInterim = '';
+        for (let i = 0; i < e.results.length; i++) {
+          const transcriptSegment = e.results[i][0].transcript;
+          if (e.results[i].isFinal) {
+            fullFinal += transcriptSegment;
+          } else {
+            fullInterim += transcriptSegment;
+          }
+        }
+        const fullDisplay = (fullFinal + fullInterim).trim();
+        setTranscript(fullDisplay);
+      };
+      rec.onerror = (e: any) => {
+        setIsListening(false);
+        if (e.error === 'not-allowed') {
+          setMicPermission('denied');
+          toast.error('Mic denied.');
+        }
+      };
       rec.onend = () => setIsListening(false);
       recognitionRef.current = rec;
       rec.start();
       setTranscript('');
       setIsListening(true);
-    } catch (e) { console.error(e); toast.error('Could not start mic.'); }
+    } catch (e) {
+      console.error(e);
+      toast.error('Could not start mic.');
+    }
   };
 
   const toggleListening = async () => {
