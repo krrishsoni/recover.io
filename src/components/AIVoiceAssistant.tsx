@@ -24,13 +24,29 @@ const AIVoiceAssistant: React.FC = () => {
 
   const { user, patients, checkIns, tasks, addCaregiverNote } = useAuth();
   const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isMounted = useRef(false);
 
   // NVIDIA API config
   const apiKey = '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';
   const NVIDIA_API_URL = '/api/nvidia/chat/completions';
 
   useEffect(() => {
+    // Load history from localStorage
+    if (user?.id) {
+       const key = `recoverai_chat_history_${user.id}`;
+       const stored = localStorage.getItem(key);
+       if (stored) {
+         try {
+           setMessages(JSON.parse(stored));
+         } catch (e) {
+           console.error("Failed to load chat history:", e);
+         }
+       }
+    }
+    isMounted.current = true;
+
     if (navigator.permissions) {
       navigator.permissions.query({ name: 'microphone' as PermissionName }).then((result) => {
         setMicPermission(result.state === 'granted' ? 'granted' : result.state === 'denied' ? 'denied' : 'unknown');
@@ -43,7 +59,15 @@ const AIVoiceAssistant: React.FC = () => {
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       if (recognitionRef.current) try { recognitionRef.current.abort(); } catch (_) {}
     };
-  }, []);
+  }, [user?.id]);
+
+  useEffect(() => {
+    // Sync to localStorage whenever messages change
+    if (isMounted.current && user?.id) {
+       const key = `recoverai_chat_history_${user.id}`;
+       localStorage.setItem(key, JSON.stringify(messages));
+    }
+  }, [messages, user?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -173,7 +197,7 @@ Be brief, professional, and empathetic.`;
           model: 'meta/llama-3.1-8b-instruct',
           messages: [
             { role: 'system', content: systemPrompt },
-            ...messages.map(m => ({ role: m.role, content: m.content })),
+            ...messages.slice(-10).map(m => ({ role: m.role, content: m.content })),
             { role: 'user', content: text }
           ],
           max_tokens: 400,
@@ -249,9 +273,17 @@ Be brief, professional, and empathetic.`;
 
   const toggleListening = async () => {
     if (isListening) {
-      try { recognitionRef.current?.stop(); } catch (_) {}
+      try { 
+        recognitionRef.current?.stop(); 
+      } catch (_) {}
       setIsListening(false);
-      if (transcript.trim()) { setTextInput(''); processQuery(transcript); setTranscript(''); }
+      const finalTranscript = transcriptRef.current || transcript;
+      if (finalTranscript.trim()) { 
+        setTextInput(''); 
+        processQuery(finalTranscript); 
+        setTranscript(''); 
+        transcriptRef.current = '';
+      }
       return;
     }
     if (micPermission === 'denied') { toast.error('Mic is blocked.'); return; }
@@ -262,12 +294,18 @@ Be brief, professional, and empathetic.`;
     try {
       if (micPermission !== 'granted') await navigator.mediaDevices.getUserMedia({ audio: true });
       const rec = new SR();
-      rec.continuous = false; rec.interimResults = true; rec.lang = 'en-US';
-      rec.onresult = (e: any) => { let t = ''; for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript; setTranscript(t); };
+      rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US';
+      rec.onresult = (e: any) => { 
+        let t = ''; 
+        for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; 
+        setTranscript(t); 
+        transcriptRef.current = t;
+      };
       rec.onend = () => setIsListening(false);
       recognitionRef.current = rec;
       rec.start();
       setTranscript('');
+      transcriptRef.current = '';
       setIsListening(true);
       setMicPermission('granted');
     } catch (e) { toast.error('Could not access mic.'); }
@@ -285,6 +323,14 @@ Be brief, professional, and empathetic.`;
     if (isListening) try { recognitionRef.current?.stop(); } catch (_) {}
     setIsListening(false);
     setIsOpen(false);
+  };
+
+  const clearHistory = () => {
+    if (window.confirm('Are you sure you want to clear your chat history?')) {
+      setMessages([]);
+      if (user?.id) localStorage.removeItem(`recoverai_chat_history_${user.id}`);
+      toast.success('Chat history cleared!');
+    }
   };
 
   return (
@@ -324,9 +370,16 @@ Be brief, professional, and empathetic.`;
                   </div>
                   <div className="flex items-center gap-2">
                     {isSpeaking && (
-                      <button onClick={stopSpeaking} className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all"><VolumeX className="w-4 h-4 text-white" /></button>
+                      <button onClick={stopSpeaking} className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all" title="Stop Speaking">
+                        <VolumeX className="w-4 h-4 text-white" />
+                      </button>
                     )}
-                    <button onClick={closeModal} className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all"><X className="w-5 h-5 text-white" /></button>
+                    <button onClick={clearHistory} className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all" title="Clear History" disabled={messages.length === 0}>
+                      <Loader2 className="w-4 h-4 text-white" style={{ opacity: messages.length === 0 ? 0.3 : 1 }} />
+                    </button>
+                    <button onClick={closeModal} className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all" title="Close AI">
+                      <X className="w-5 h-5 text-white" />
+                    </button>
                   </div>
                 </div>
 
